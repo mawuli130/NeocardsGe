@@ -5,12 +5,20 @@
       "description": "Represents a card purchase order.",
       "type": "object",
       "properties": {
-        "userId": { "type": "string", "description": "UID of the user who made the purchase" },
-        "cardId": { "type": "string", "description": "ID of the card purchased" },
-        "amount": { "type": "number", "description": "Amount paid in USD" },
-        "status": { "type": "string", "enum": ["pending", "completed", "failed"] },
-        "paymentMethod": { "type": "string" },
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string" },
+        "userName": { "type": "string" },
+        "cardId": { "type": "string" },
+        "cardName": { "type": "string" },
+        "amount": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "processing", "completed", "failed"] },
+        "paymentMethod": { "type": "string", "enum": ["crypto", "eversend"] },
+        "cryptoCurrency": { "type": "string" },
+        "cryptoAddress": { "type": "string" },
+        "paymentProof": { "type": "string" },
+        "receiptUrl": { "type": "string" },
         "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" },
         "cardDetails": {
           "type": "object",
           "properties": {
@@ -21,7 +29,24 @@
           }
         }
       },
-      "required": ["userId", "cardId", "amount", "status", "createdAt"]
+      "required": ["userId", "cardId", "amount", "status", "paymentMethod", "createdAt"]
+    },
+    "AppSettings": {
+      "title": "Global Settings",
+      "description": "Payment addresses and global URLs",
+      "type": "object",
+      "properties": {
+        "eversendLink": { "type": "string" },
+        "cryptoAddresses": {
+          "type": "object",
+          "properties": {
+            "btc": { "type": "string" },
+            "eth": { "type": "string" },
+            "usdt": { "type": "string" }
+          }
+        },
+        "contactEmail": { "type": "string" }
+      }
     },
     "Card": {
       "title": "Card",
@@ -58,6 +83,10 @@
         }
       },
       "description": "Library of images for reuse"
+    },
+    "/settings/{settingId}": {
+      "schema": "AppSettings",
+      "description": "Global configuration"
     }
   }
 }

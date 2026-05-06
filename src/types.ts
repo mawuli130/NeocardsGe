@@ -24,11 +24,19 @@ export interface UserProfile {
 export interface Order {
   id: string;
   userId: string;
+  userEmail?: string;
+  userName?: string;
   cardId: string;
+  cardName: string;
   amount: number;
-  status: "pending" | "completed" | "failed";
-  paymentMethod?: string;
+  status: "pending" | "processing" | "completed" | "failed";
+  paymentMethod: "crypto" | "eversend";
+  cryptoCurrency?: string;
+  cryptoAddress?: string;
   createdAt: number;
+  updatedAt?: number;
+  paymentProof?: string; // Transaction ID or message
+  receiptUrl?: string;
   cardDetails?: {
     number: string;
     cvv: string;
@@ -37,4 +45,17 @@ export interface Order {
     image?: string;
     name?: string;
   };
+}
+
+export interface AppSettings {
+  id: "global";
+  eversendLink: string;
+  cryptoAddresses: {
+    btc: string;
+    eth: string;
+    usdt: string;
+    ltc?: string;
+  };
+  contactEmail: string;
+  telegramLink?: string;
 }

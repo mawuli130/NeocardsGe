@@ -1,42 +1,51 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { CreditCard, ShieldCheck, Lock, ArrowLeft, Loader2, CheckCircle2, ArrowRight, Bitcoin, Coins, QrCode, Copy } from "lucide-react";
+import { CreditCard, ShieldCheck, Lock, ArrowLeft, Loader2, CheckCircle2, ArrowRight, Bitcoin, Coins, QrCode, Copy, Send } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import toast from "react-hot-toast";
 import { auth, db, handleFirestoreError, OperationType } from "../lib/firebase";
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { Card, Order } from "../types";
-import { CRYPTO_WALLETS } from "../constants";
+import { doc, getDoc, setDoc, collection, query, limit, getDocs } from "firebase/firestore";
+import { Card, Order, AppSettings } from "../types";
 
 export default function Checkout() {
   const { cardId } = useParams();
   const navigate = useNavigate();
   const [card, setCard] = useState<Card | null>(null);
+  const [settings, setSettings] = useState<AppSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<"card" | "crypto">("card");
-  const [selectedCrypto, setSelectedCrypto] = useState<keyof typeof CRYPTO_WALLETS>("BTC");
+  const [paymentMethod, setPaymentMethod] = useState<"crypto" | "eversend">("crypto");
+  const [selectedCrypto, setSelectedCrypto] = useState<"btc" | "eth" | "usdt">("btc");
+  const [paymentProof, setPaymentProof] = useState("");
 
   useEffect(() => {
-    fetchCard();
+    fetchData();
   }, [cardId]);
 
-  async function fetchCard() {
+  async function fetchData() {
     if (!cardId) return;
-    const path = `cards/${cardId}`;
     try {
-      const docRef = doc(db, "cards", cardId);
-      const snap = await getDoc(docRef);
-      if (snap.exists()) {
-        setCard({ id: snap.id, ...snap.data() } as Card);
+      // Fetch card
+      const cardRef = doc(db, "cards", cardId);
+      const cardSnap = await getDoc(cardRef);
+      
+      // Fetch settings
+      const settingsRef = doc(db, "settings", "global");
+      const settingsSnap = await getDoc(settingsRef);
+
+      if (cardSnap.exists()) {
+        setCard({ id: cardSnap.id, ...cardSnap.data() } as Card);
       } else {
         toast.error("Card not found");
         navigate("/cards");
       }
+
+      if (settingsSnap.exists()) {
+        setSettings(settingsSnap.data() as AppSettings);
+      }
     } catch (error) {
-      console.error("Error fetching card:", error);
-      handleFirestoreError(error, OperationType.GET, path);
+      console.error("Error fetching data:", error);
     } finally {
       setLoading(false);
     }
@@ -45,219 +54,236 @@ export default function Checkout() {
   const handlePayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!auth.currentUser || !card) return;
+    if (paymentMethod === "eversend" && !paymentProof) {
+      toast.error("Please provide payment reference (e.g. proof of transfer)");
+      return;
+    }
 
     setProcessing(true);
     try {
-      // Simulate API/Blockchain verification
-      await new Promise((resolve) => setTimeout(resolve, 3000));
-
       const orderId = `ord_${Math.random().toString(36).substring(7)}`;
       const path = `orders/${orderId}`;
       
       const orderData: Order = {
         id: orderId,
         userId: auth.currentUser.uid,
+        userEmail: auth.currentUser.email || undefined,
+        userName: auth.currentUser.displayName || undefined,
         cardId: card.id,
+        cardName: card.name,
         amount: card.price,
-        status: "completed",
-        paymentMethod: paymentMethod === "card" ? "Debit Card" : `${selectedCrypto} Crypto`,
+        status: "pending",
+        paymentMethod: paymentMethod,
+        cryptoCurrency: paymentMethod === "crypto" ? selectedCrypto : undefined,
+        cryptoAddress: paymentMethod === "crypto" ? settings?.cryptoAddresses[selectedCrypto] : undefined,
+        paymentProof: paymentProof,
         createdAt: Date.now(),
-        cardDetails: {
-          number: Array(4).fill(0).map(() => Math.floor(1000 + Math.random() * 9000)).join(" "),
-          cvv: Math.floor(100 + Math.random() * 900).toString(),
-          expiry: card.expiration,
-          pin: Math.floor(1000 + Math.random() * 9000).toString(),
-          image: card.image,
-          name: card.name,
-        },
       };
 
-      try {
-        await setDoc(doc(db, "orders", orderId), orderData);
-      } catch (error) {
-        handleFirestoreError(error, OperationType.WRITE, path);
-      }
+      await setDoc(doc(db, "orders", orderId), orderData);
 
       setSuccess(true);
-      toast.success("Order Placed Successfully!");
+      toast.success("Order request submitted! Admin will verify and deliver your card.");
       setTimeout(() => navigate("/dashboard"), 3000);
     } catch (error: any) {
-      console.error("Payment Process Error:", error);
-      // Non-firestore errors are handled here or propagated
-      if (!error.message.includes("OperationType")) {
-        toast.error("Payment failed. Please try again.");
-      }
+      console.error("Payment Order Error:", error);
+      handleFirestoreError(error, OperationType.WRITE, `orders/new`);
     } finally {
       setProcessing(false);
     }
   };
 
-  const copyAddress = () => {
-    navigator.clipboard.writeText(CRYPTO_WALLETS[selectedCrypto]);
-    toast.success(`${selectedCrypto} Address Copied!`);
+  const copyAddress = (address?: string) => {
+    if (!address) return;
+    navigator.clipboard.writeText(address);
+    toast.success(`Address Copied!`);
   };
 
-  if (loading) return <div className="h-[60vh] flex items-center justify-center"><Loader2 className="animate-spin" /></div>;
+  if (loading) return <div className="h-[60vh] flex items-center justify-center"><Loader2 className="animate-spin text-orange-600" /></div>;
   if (!card) return null;
 
+  const currentWallet = settings?.cryptoAddresses[selectedCrypto] || "Wallet addr pending...";
+
   return (
-    <div className="max-w-5xl mx-auto py-8">
+    <div className="max-w-5xl mx-auto py-12 px-4">
       <button
         onClick={() => navigate("/cards")}
-        className="flex items-center space-x-2 text-neutral-500 hover:text-neutral-900 transition mb-8 group"
+        className="flex items-center space-x-2 text-neutral-500 hover:text-white transition mb-8 group"
       >
         <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" />
-        <span className="font-semibold">Back to Marketplace</span>
+        <span className="font-bold uppercase tracking-widest text-xs">Back to Cards</span>
       </button>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
         {/* Left: Summary */}
         <div className="space-y-8">
-          <div className="bg-white p-8 rounded-[2rem] border border-neutral-100 shadow-sm space-y-6">
-            <h2 className="text-2xl font-bold text-neutral-900 tracking-tight">Checkout</h2>
+          <div className="bg-neutral-900 p-8 rounded-[2.5rem] border border-white/5 shadow-2xl space-y-8">
+            <h2 className="text-3xl font-black text-white tracking-tighter uppercase italic">Secure Checkout</h2>
             
-            <div className="flex items-center space-x-4 p-4 bg-neutral-50 rounded-2xl border border-neutral-100">
-              {card.image ? (
-                <div className="w-20 h-14 rounded-lg overflow-hidden border border-neutral-200">
-                  <img src={card.image} alt="" className="w-full h-full object-cover" />
-                </div>
-              ) : (
-                <div className={`w-16 h-10 rounded-lg flex items-center justify-center text-white ${
-                  card.type === "Visa" ? "bg-blue-600" : card.type === "MasterCard" ? "bg-neutral-800" : "bg-emerald-600"
-                }`}>
-                  <CreditCard size={20} />
-                </div>
-              )}
-              <div className="flex-grow">
-                <h4 className="font-bold text-neutral-900">{card.name}</h4>
-                <p className="text-xs text-neutral-500">Digital Delivery • {card.type}</p>
+            <div className="flex items-center space-x-4 p-5 bg-black/40 rounded-2xl border border-white/5">
+              <div className="w-24 h-15 rounded-xl overflow-hidden border border-white/10 shrink-0">
+                <img src={card.image} alt="" className="w-full h-full object-cover" />
               </div>
-              <span className="font-black text-neutral-900">${card.price}</span>
+              <div className="flex-grow">
+                <h4 className="font-black text-white uppercase text-sm tracking-tight">{card.name}</h4>
+                <p className="text-[10px] text-neutral-500 font-bold uppercase tracking-widest">Digital Delivery • {card.type}</p>
+              </div>
+              <span className="font-black text-lime-400 text-xl">${card.price}</span>
             </div>
 
-            <div className="space-y-4 pt-4 border-t border-neutral-100">
-              <p className="text-xs font-black text-neutral-400 uppercase tracking-widest">Select Payment Method</p>
+            <div className="space-y-4">
+              <p className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.2em] ml-1">Payment Options</p>
               <div className="grid grid-cols-2 gap-4">
                 <button
-                  onClick={() => setPaymentMethod("card")}
-                  className={`p-4 rounded-2xl border-2 transition flex flex-col items-center gap-2 ${
-                    paymentMethod === "card" ? "border-blue-600 bg-blue-50 text-blue-600" : "border-neutral-100 text-neutral-500 hover:bg-neutral-50"
+                  onClick={() => setPaymentMethod("crypto")}
+                  className={`p-6 rounded-2xl border-2 transition flex flex-col items-center gap-3 ${
+                    paymentMethod === "crypto" ? "border-orange-600 bg-orange-600/10 text-orange-500 shadow-xl shadow-orange-600/10" : "border-white/5 text-neutral-500 hover:bg-white/5"
                   }`}
                 >
-                  <CreditCard size={24} />
-                  <span className="text-sm font-bold">Debit / Credit</span>
+                  <Coins size={32} />
+                  <span className="text-xs font-black uppercase tracking-widest">Crypto</span>
                 </button>
                 <button
-                  onClick={() => setPaymentMethod("crypto")}
-                  className={`p-4 rounded-2xl border-2 transition flex flex-col items-center gap-2 ${
-                    paymentMethod === "crypto" ? "border-blue-600 bg-blue-50 text-blue-600" : "border-neutral-100 text-neutral-500 hover:bg-neutral-50"
+                  onClick={() => setPaymentMethod("eversend")}
+                  className={`p-6 rounded-2xl border-2 transition flex flex-col items-center gap-3 ${
+                    paymentMethod === "eversend" ? "border-blue-600 bg-blue-600/10 text-blue-500 shadow-xl shadow-blue-600/10" : "border-white/5 text-neutral-500 hover:bg-white/5"
                   }`}
                 >
-                  <Coins size={24} />
-                  <span className="text-sm font-bold">Cryptocurrency</span>
+                  <Send size={32} />
+                  <span className="text-xs font-black uppercase tracking-widest">Eversend</span>
                 </button>
               </div>
             </div>
 
-            <div className="space-y-3 pt-4 border-t border-neutral-100">
-              <div className="flex justify-between text-lg pt-4 border-t border-neutral-200">
-                <span className="font-bold text-neutral-900">Total to Pay</span>
-                <span className="font-black text-blue-600">${card.price}.00</span>
+            <div className="pt-6 border-t border-white/5">
+              <div className="flex justify-between items-center bg-black/50 p-6 rounded-2xl">
+                <span className="font-bold text-neutral-500 uppercase tracking-widest text-xs">Final Price</span>
+                <span className="font-black text-3xl text-white italic tracking-tighter">${card.price}.00</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Right: Payment */}
+        {/* Right: Payment Details */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white p-8 md:p-10 rounded-[2.5rem] shadow-xl border border-neutral-100 relative overflow-hidden"
+           layout
+           className="bg-neutral-900 p-8 md:p-12 rounded-[3rem] border border-white/5 shadow-2xl"
         >
-          {success ? (
-            <div className="h-full flex flex-col items-center justify-center text-center space-y-6 py-12">
-              <CheckCircle2 size={80} className="text-green-500 animate-bounce" />
-              <div className="space-y-2">
-                <h3 className="text-3xl font-bold text-neutral-900">Payment Successful!</h3>
-                <p className="text-neutral-500">Redirecting to your dashboard...</p>
-              </div>
-            </div>
-          ) : (
-            <>
-              {paymentMethod === "card" ? (
-                <form onSubmit={handlePayment} className="space-y-6">
-                  <h2 className="text-2xl font-bold text-neutral-900 flex items-center space-x-3">
-                    <Lock size={20} className="text-neutral-400" />
-                    <span>Card Details</span>
-                  </h2>
-                  <div className="space-y-2">
-                    <label className="text-sm font-bold text-neutral-600 uppercase tracking-wider ml-1">Card Number</label>
-                    <div className="relative">
-                      <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-300" size={18} />
-                      <input type="text" placeholder="**** **** **** ****" className="w-full pl-12 pr-4 py-4 bg-neutral-50 border-2 border-neutral-100 rounded-2xl focus:border-blue-600 outline-none" required />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <input type="text" placeholder="MM / YY" className="w-full px-4 py-4 bg-neutral-50 border-2 border-neutral-100 rounded-2xl focus:border-blue-600 outline-none" required />
-                    <input type="text" placeholder="CVV" className="w-full px-4 py-4 bg-neutral-50 border-2 border-neutral-100 rounded-2xl focus:border-blue-600 outline-none" required />
-                  </div>
-                  <button type="submit" disabled={processing} className="w-full bg-neutral-900 text-white py-5 rounded-2xl font-black text-lg hover:bg-blue-600 transition flex items-center justify-center space-x-3 disabled:opacity-50">
-                    {processing ? <Loader2 className="animate-spin" /> : <><span>Pay ${card.price}</span><ArrowRight size={20} /></>}
-                  </button>
-                </form>
-              ) : (
-                <div className="space-y-6">
-                  <h2 className="text-2xl font-bold text-neutral-900 flex items-center space-x-3">
-                    <Bitcoin size={20} className="text-amber-500" />
-                    <span>Crypto Payment</span>
-                  </h2>
-                  
-                  <div className="flex gap-2">
-                    {(Object.keys(CRYPTO_WALLETS) as Array<keyof typeof CRYPTO_WALLETS>).map(coin => (
+          <AnimatePresence mode="wait">
+            {success ? (
+              <motion.div 
+                key="success"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="h-full flex flex-col items-center justify-center text-center space-y-6"
+              >
+                <div className="w-24 h-24 bg-lime-500/10 rounded-full flex items-center justify-center text-lime-500 border border-lime-500/20">
+                  <CheckCircle2 size={48} />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-3xl font-black text-white uppercase italic tracking-tighter leading-none">Order Pending</h3>
+                  <p className="text-neutral-500 font-medium">Payment received and under verification. Check your dashboard for updates.</p>
+                </div>
+              </motion.div>
+            ) : paymentMethod === "crypto" ? (
+              <motion.div key="crypto" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-8">
+                 <div className="flex justify-between items-center">
+                    <h2 className="text-2xl font-black text-white uppercase italic tracking-tighter">Crypto Transfer</h2>
+                    <Bitcoin className="text-orange-500" size={32} />
+                 </div>
+
+                 <div className="flex gap-2 p-1 bg-black/40 rounded-xl">
+                    {(['btc', 'eth', 'usdt'] as const).map(coin => (
                       <button
                         key={coin}
                         onClick={() => setSelectedCrypto(coin)}
-                        className={`flex-grow py-3 rounded-xl border-2 font-bold transition ${
-                          selectedCrypto === coin ? "border-amber-500 bg-amber-50 text-amber-600" : "border-neutral-100 text-neutral-400"
+                        className={`flex-grow py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition ${
+                          selectedCrypto === coin ? "bg-orange-600 text-white" : "text-neutral-500 hover:text-white"
                         }`}
                       >
                         {coin}
                       </button>
                     ))}
-                  </div>
+                 </div>
 
-                  <div className="bg-neutral-50 p-6 rounded-3xl border border-neutral-100 text-center space-y-4">
-                    <div className="bg-white p-4 rounded-2xl inline-block shadow-sm border border-neutral-100">
-                      <QrCode size={160} className="text-neutral-900" />
+                 <div className="bg-black/40 p-8 rounded-[2rem] border border-white/5 text-center space-y-6">
+                    <div className="bg-white p-3 rounded-2xl inline-block">
+                      <QrCode size={180} className="text-black" />
                     </div>
-                    <div className="space-y-1">
-                      <p className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Send Amount</p>
-                      <p className="text-xl font-black text-neutral-900">0.00045 {selectedCrypto}</p>
-                      <p className="text-[10px] text-neutral-400">Equivalent to ${card.price}.00 USD</p>
-                    </div>
-                    <div className="pt-4 space-y-2">
-                      <p className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Wallet Address</p>
-                      <div className="bg-white border border-neutral-100 p-3 rounded-xl flex items-center justify-between gap-2 overflow-hidden">
-                        <span className="text-[10px] font-mono text-neutral-500 truncate">{CRYPTO_WALLETS[selectedCrypto]}</span>
-                        <button onClick={copyAddress} className="text-blue-600 hover:text-blue-700 shrink-0"><Copy size={16} /></button>
+                    <div className="space-y-4">
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">Wallet Address ({selectedCrypto.toUpperCase()})</p>
+                        <div className="bg-black/60 border border-white/10 p-4 rounded-xl flex items-center justify-between gap-4">
+                          <span className="text-[10px] font-mono text-orange-500 truncate">{currentWallet}</span>
+                          <button onClick={() => copyAddress(currentWallet)} className="text-white hover:text-orange-500 shrink-0 transition-colors"><Copy size={16} /></button>
+                        </div>
+                      </div>
+                      <div className="space-y-1 pt-4">
+                        <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest block text-left ml-1">Payment Reference / TX ID</label>
+                        <input
+                          type="text"
+                          placeholder="Paste Transaction ID here..."
+                          className="w-full bg-black/60 border border-white/5 p-4 rounded-xl text-xs text-white focus:border-orange-600 outline-none transition"
+                          value={paymentProof}
+                          onChange={e => setPaymentProof(e.target.value)}
+                        />
                       </div>
                     </div>
-                  </div>
+                 </div>
 
-                  <button
-                    onClick={handlePayment}
-                    disabled={processing}
-                    className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black text-lg hover:bg-blue-700 transition flex items-center justify-center space-x-3 disabled:opacity-50"
-                  >
-                    {processing ? <Loader2 className="animate-spin" /> : <span>Verify & Complete</span>}
-                  </button>
-                  <p className="text-[10px] text-neutral-400 text-center leading-relaxed">
-                    Click "Verify" once you've sent the payment. Our blockchain bot will search for the transaction.
-                  </p>
-                </div>
-              )}
-            </>
-          )}
+                 <button
+                   onClick={handlePayment}
+                   disabled={processing}
+                   className="w-full bg-orange-600 text-white py-5 rounded-[1.5rem] font-black uppercase tracking-widest text-sm hover:bg-orange-500 transition shadow-xl shadow-orange-600/20 disabled:opacity-50"
+                 >
+                   {processing ? <Loader2 className="animate-spin" /> : "Verify Payment Transfer"}
+                 </button>
+              </motion.div>
+            ) : (
+              <motion.div key="eversend" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-8">
+                 <div className="flex justify-between items-center">
+                    <h2 className="text-2xl font-black text-white uppercase italic tracking-tighter">EVERSEND PAY</h2>
+                    <div className="bg-blue-600 p-2 rounded-lg"><Send className="text-white" size={24} /></div>
+                 </div>
+
+                 <div className="bg-blue-600/5 border border-blue-600/20 p-8 rounded-[2rem] space-y-6">
+                    <p className="text-sm text-neutral-400 font-medium leading-relaxed">
+                      Make your payment using Eversend. Click the secure link below to open the payment portal.
+                    </p>
+                    
+                    <a 
+                      href={settings?.eversendLink || "https://eversend.me/neocards"} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-between bg-blue-600 text-white p-5 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-blue-500 transition"
+                    >
+                      <span>Open Eversend Portal</span>
+                      <ArrowRight size={18} />
+                    </a>
+
+                    <div className="space-y-4 pt-6 border-t border-white/5">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest block text-left ml-1">Payment Confirmation Msg</label>
+                        <textarea
+                          placeholder="Type your payment confirmation details or transfer reference..."
+                          className="w-full bg-black/40 border border-white/5 p-4 rounded-xl text-xs text-white focus:border-blue-600 outline-none transition h-32 resize-none"
+                          value={paymentProof}
+                          onChange={e => setPaymentProof(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                 </div>
+
+                 <button
+                   onClick={handlePayment}
+                   disabled={processing}
+                   className="w-full bg-blue-600 text-white py-5 rounded-[1.5rem] font-black uppercase tracking-widest text-sm hover:bg-blue-500 transition shadow-xl shadow-blue-600/20 disabled:opacity-50"
+                 >
+                   {processing ? <Loader2 className="animate-spin" /> : "Submit Payment Check"}
+                 </button>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </motion.div>
       </div>
     </div>

@@ -29,11 +29,11 @@ service cloud.firestore {
 
     // Order validation
     function isValidOrder(data) {
-      return data.keys().hasAll(['userId', 'cardId', 'amount', 'status', 'createdAt']) && 
-             data.keys().size() >= 5 &&
+      return data.keys().hasAll(['userId', 'cardId', 'amount', 'status', 'createdAt', 'paymentMethod']) && 
              data.userId == request.auth.uid &&
              data.amount is number &&
-             data.status in ['pending', 'completed', 'failed'] &&
+             data.status in ['pending', 'processing', 'completed', 'failed'] &&
+             data.paymentMethod in ['crypto', 'eversend'] &&
              data.createdAt is number;
     }
 
@@ -49,6 +49,12 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Settings Collection
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
     // Orders Collection
     match /orders/{orderId} {
       allow get: if isOwner(resource.data.userId) || isAdmin();
@@ -56,8 +62,7 @@ service cloud.firestore {
       
       allow create: if isSignedIn() && 
                       isValidId(orderId) &&
-                      isValidOrder(request.resource.data) &&
-                      request.resource.data.createdAt == request.time.toMillis();
+                      isValidOrder(request.resource.data);
       
       allow update: if isAdmin();
       allow delete: if isAdmin();
