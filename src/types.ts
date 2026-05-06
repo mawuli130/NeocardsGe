@@ -32,6 +32,8 @@ export interface Order {
   status: "pending" | "processing" | "completed" | "failed";
   paymentMethod: "crypto" | "eversend";
   cryptoCurrency?: string;
+  cryptoAmount?: string;
+  cryptoRate?: number;
   cryptoAddress?: string;
   createdAt: number;
   updatedAt?: number;
@@ -55,6 +57,11 @@ export interface AppSettings {
     eth: string;
     usdt: string;
     ltc?: string;
+  };
+  exchangeRates: {
+    btc: number;
+    eth: number;
+    usdt: number;
   };
   contactEmail: string;
   telegramLink?: string;

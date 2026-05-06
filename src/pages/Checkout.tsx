@@ -75,6 +75,8 @@ export default function Checkout() {
         status: "pending",
         paymentMethod: paymentMethod,
         cryptoCurrency: paymentMethod === "crypto" ? selectedCrypto : undefined,
+        cryptoAmount: paymentMethod === "crypto" ? cryptoAmount : undefined,
+        cryptoRate: paymentMethod === "crypto" ? exchangeRate : undefined,
         cryptoAddress: paymentMethod === "crypto" ? settings?.cryptoAddresses[selectedCrypto] : undefined,
         paymentProof: paymentProof,
         createdAt: Date.now(),
@@ -103,6 +105,8 @@ export default function Checkout() {
   if (!card) return null;
 
   const currentWallet = settings?.cryptoAddresses[selectedCrypto] || "Wallet addr pending...";
+  const exchangeRate = settings?.exchangeRates?.[selectedCrypto] || 1;
+  const cryptoAmount = (card.price / (exchangeRate || 1)).toFixed(selectedCrypto === 'btc' ? 8 : selectedCrypto === 'eth' ? 6 : 2);
 
   return (
     <div className="max-w-5xl mx-auto py-12 px-4">
@@ -211,8 +215,19 @@ export default function Checkout() {
                       <QrCode size={180} className="text-black" />
                     </div>
                     <div className="space-y-4">
+                      <div className="flex flex-col items-center justify-center space-y-2 bg-orange-600/5 p-6 rounded-2xl border border-orange-600/10">
+                        <p className="text-[10px] font-black text-neutral-500 uppercase tracking-widest leading-none">Exact Amount to Send</p>
+                        <div className="flex items-center gap-2">
+                           <span className="text-3xl font-black text-white italic tracking-tighter">{cryptoAmount}</span>
+                           <span className="text-xs font-black text-orange-500 uppercase">{selectedCrypto}</span>
+                        </div>
+                        <p className="text-[9px] text-neutral-600 font-bold uppercase italic tracking-widest pt-1 border-t border-white/5 w-full mt-2">
+                           Rate: ${exchangeRate.toLocaleString()} / {selectedCrypto.toUpperCase()}
+                        </p>
+                      </div>
+
                       <div className="space-y-1">
-                        <p className="text-[10px] font-black text-neutral-500 uppercase tracking-widest">Wallet Address ({selectedCrypto.toUpperCase()})</p>
+                        <p className="text-[10px] font-black text-neutral-500 uppercase tracking-widest block text-left ml-1">Wallet Address ({selectedCrypto.toUpperCase()})</p>
                         <div className="bg-black/60 border border-white/10 p-4 rounded-xl flex items-center justify-between gap-4">
                           <span className="text-[10px] font-mono text-orange-500 truncate">{currentWallet}</span>
                           <button onClick={() => copyAddress(currentWallet)} className="text-white hover:text-orange-500 shrink-0 transition-colors"><Copy size={16} /></button>

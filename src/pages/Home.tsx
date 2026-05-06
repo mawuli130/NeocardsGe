@@ -29,6 +29,39 @@ export default function Home() {
            transition={{ duration: 0.8 }}
            className="max-w-5xl mx-auto space-y-12"
         >
+          {/* Market Ticker */}
+          <div className="flex overflow-hidden whitespace-nowrap bg-neutral-900/50 py-2 border-y border-white/5">
+             <div className="flex animate-marquee gap-8">
+                {[
+                  { name: "BTC/USD", price: "$65,420.00", change: "+1.2%" },
+                  { name: "ETH/USD", price: "$3,310.45", change: "+0.8%" },
+                  { name: "VIRTUAL-VISA", price: "$25.00", change: "FIXED" },
+                  { name: "USD/EVERSEND", price: "1.00", change: "0.0%" },
+                ].map((ticker, i) => (
+                  <div key={i} className="flex items-center gap-2 px-4 border-r border-white/10 last:border-0">
+                    <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">{ticker.name}</span>
+                    <span className="text-xs font-black text-orange-500 font-mono tracking-tighter">{ticker.price}</span>
+                    <span className={`text-[8px] font-black ${ticker.change.startsWith('+') ? 'text-lime-500' : 'text-neutral-500'}`}>{ticker.change}</span>
+                  </div>
+                ))}
+             </div>
+             {/* Repeat for continuous scroll */}
+             <div className="flex animate-marquee gap-8 ml-8">
+                {[
+                  { name: "BTC/USD", price: "$65,420.00", change: "+1.2%" },
+                  { name: "ETH/USD", price: "$3,310.45", change: "+0.8%" },
+                  { name: "VIRTUAL-VISA", price: "$25.00", change: "FIXED" },
+                  { name: "USD/EVERSEND", price: "1.00", change: "0.0%" },
+                ].map((ticker, i) => (
+                  <div key={i+"sub"} className="flex items-center gap-2 px-4 border-r border-white/10 last:border-0">
+                    <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">{ticker.name}</span>
+                    <span className="text-xs font-black text-orange-500 font-mono tracking-tighter">{ticker.price}</span>
+                    <span className={`text-[8px] font-black ${ticker.change.startsWith('+') ? 'text-lime-500' : 'text-neutral-500'}`}>{ticker.change}</span>
+                  </div>
+                ))}
+             </div>
+          </div>
+
           <div className="space-y-6 text-center">
             <h1 className="text-4xl md:text-7xl font-black text-[#f97316] leading-none tracking-tighter uppercase italic">
               DANGER! THE NEOBYTE <br /> VIRTUAL CREDIT CARD <br /> IS HIGHLY ENGAGING

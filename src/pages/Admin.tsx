@@ -317,7 +317,14 @@ export default function Admin() {
                     </td>
                     <td className="px-8 py-8">
                        <p className="text-xs font-black text-white uppercase tracking-widest">{order.cardName}</p>
-                       <p className="text-[10px] text-lime-500 font-black font-mono">${order.amount}</p>
+                       <div className="flex items-center gap-2 mt-1">
+                          <p className="text-[10px] text-lime-500 font-black font-mono">${order.amount}</p>
+                          {order.cryptoAmount && (
+                            <div className="flex items-center gap-1 bg-orange-600/10 px-1.5 py-0.5 rounded border border-orange-600/20">
+                               <span className="text-[8px] font-black text-orange-500 uppercase">{order.cryptoAmount} {order.cryptoCurrency}</span>
+                            </div>
+                          )}
+                       </div>
                     </td>
                     <td className="px-8 py-8">
                        <span className={`px-4 py-1 rounded-full text-[9px] font-black uppercase tracking-[0.2em] ${
@@ -332,7 +339,15 @@ export default function Admin() {
                        <div className="space-y-1">
                           <p className="text-[10px] font-black text-white uppercase">{order.paymentMethod}</p>
                           {order.paymentProof && (
-                            <button onClick={() => toast(order.paymentProof!, { duration: 5000 })} className="text-[9px] text-blue-500 font-bold hover:underline">View Reference</button>
+                            <div className="flex flex-col gap-1">
+                               <button onClick={() => toast(order.paymentProof!, { duration: 5000 })} className="text-[9px] text-blue-500 font-bold hover:underline text-left">View Reference</button>
+                               {order.paymentMethod === 'crypto' && order.cryptoCurrency === 'btc' && (
+                                 <a href={`https://www.blockchain.com/btc/tx/${order.paymentProof}`} target="_blank" rel="noopener" className="text-[8px] text-orange-500 hover:underline">Block Explorer</a>
+                               )}
+                               {order.paymentMethod === 'crypto' && (order.cryptoCurrency === 'eth' || order.cryptoCurrency === 'usdt') && (
+                                 <a href={`https://etherscan.io/tx/${order.paymentProof}`} target="_blank" rel="noopener" className="text-[8px] text-emerald-500 hover:underline">Etherscan</a>
+                               )}
+                            </div>
                           )}
                        </div>
                     </td>
@@ -404,6 +419,44 @@ export default function Admin() {
                         onChange={e => setEditSettings({...editSettings, cryptoAddresses: {...editSettings.cryptoAddresses, usdt: e.target.value}})}
                       />
                     </div>
+                 </div>
+
+                 {/* Trading System: Exchange Rates */}
+                 <div className="space-y-6 pt-6 border-t border-white/5">
+                    <div className="flex items-center gap-3">
+                      <Settings size={14} className="text-orange-500" />
+                      <h4 className="text-xs font-black text-white uppercase tracking-widest">Trading Rates (1 Coin = ? USD)</h4>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                       <div className="space-y-3">
+                          <label className="text-[9px] font-black text-neutral-500 uppercase tracking-widest ml-2">BTC Rate</label>
+                          <input 
+                            type="number"
+                            className="w-full bg-black/40 border border-white/10 p-4 rounded-xl text-sm focus:border-orange-600 outline-none text-white font-mono"
+                            value={editSettings.exchangeRates?.btc || 65000}
+                            onChange={e => setEditSettings({...editSettings, exchangeRates: {...(editSettings.exchangeRates || {btc: 0, eth: 0, usdt: 1}), btc: Number(e.target.value)}})}
+                          />
+                       </div>
+                       <div className="space-y-3">
+                          <label className="text-[9px] font-black text-neutral-500 uppercase tracking-widest ml-2">ETH Rate</label>
+                          <input 
+                            type="number"
+                            className="w-full bg-black/40 border border-white/10 p-4 rounded-xl text-sm focus:border-blue-600 outline-none text-white font-mono"
+                            value={editSettings.exchangeRates?.eth || 3500}
+                            onChange={e => setEditSettings({...editSettings, exchangeRates: {...(editSettings.exchangeRates || {btc: 0, eth: 0, usdt: 1}), eth: Number(e.target.value)}})}
+                          />
+                       </div>
+                       <div className="space-y-3">
+                          <label className="text-[9px] font-black text-neutral-500 uppercase tracking-widest ml-2">USDT Rate</label>
+                          <input 
+                            type="number"
+                            className="w-full bg-black/40 border border-white/10 p-4 rounded-xl text-sm focus:border-emerald-600 outline-none text-white font-mono"
+                            value={editSettings.exchangeRates?.usdt || 1}
+                            onChange={e => setEditSettings({...editSettings, exchangeRates: {...(editSettings.exchangeRates || {btc: 0, eth: 0, usdt: 1}), usdt: Number(e.target.value)}})}
+                          />
+                       </div>
+                    </div>
+                    <p className="text-[9px] text-neutral-600 font-bold italic uppercase tracking-tighter">* These rates calculate the final crypto amount users send at checkout.</p>
                  </div>
 
                  <div className="space-y-3">
