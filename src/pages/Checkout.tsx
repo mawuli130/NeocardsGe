@@ -67,6 +67,8 @@ export default function Checkout() {
           cvv: Math.floor(100 + Math.random() * 900).toString(),
           expiry: card.expiration,
           pin: Math.floor(1000 + Math.random() * 9000).toString(),
+          image: card.image,
+          name: card.name,
         },
       };
 
@@ -115,11 +117,17 @@ export default function Checkout() {
             <h2 className="text-2xl font-bold text-neutral-900 tracking-tight">Checkout</h2>
             
             <div className="flex items-center space-x-4 p-4 bg-neutral-50 rounded-2xl border border-neutral-100">
-              <div className={`w-16 h-10 rounded-lg flex items-center justify-center text-white ${
-                card.type === "Visa" ? "bg-blue-600" : card.type === "MasterCard" ? "bg-neutral-800" : "bg-emerald-600"
-              }`}>
-                <CreditCard size={20} />
-              </div>
+              {card.image ? (
+                <div className="w-20 h-14 rounded-lg overflow-hidden border border-neutral-200">
+                  <img src={card.image} alt="" className="w-full h-full object-cover" />
+                </div>
+              ) : (
+                <div className={`w-16 h-10 rounded-lg flex items-center justify-center text-white ${
+                  card.type === "Visa" ? "bg-blue-600" : card.type === "MasterCard" ? "bg-neutral-800" : "bg-emerald-600"
+                }`}>
+                  <CreditCard size={20} />
+                </div>
+              )}
               <div className="flex-grow">
                 <h4 className="font-bold text-neutral-900">{card.name}</h4>
                 <p className="text-xs text-neutral-500">Digital Delivery • {card.type}</p>

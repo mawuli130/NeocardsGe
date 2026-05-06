@@ -34,5 +34,7 @@ export interface Order {
     cvv: string;
     expiry: string;
     pin: string;
+    image?: string;
+    name?: string;
   };
 }

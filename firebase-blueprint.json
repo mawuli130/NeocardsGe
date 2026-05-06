@@ -33,6 +33,7 @@
         "price": { "type": "number" },
         "limit": { "type": "number" },
         "expiration": { "type": "string" },
+        "image": { "type": "string", "description": "URL of the card visual PNG/AVIF" },
         "rating": { "type": "number" },
         "reviews": { "type": "number" },
         "features": { "type": "array", "items": { "type": "string" } }

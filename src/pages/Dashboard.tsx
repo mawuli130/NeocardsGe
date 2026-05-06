@@ -88,19 +88,25 @@ export default function Dashboard() {
             >
               {/* Visual Card */}
               <div className="p-8 pb-4">
-                <div className="relative h-48 rounded-3xl overflow-hidden shadow-2xl transition-transform group-hover:scale-[1.02] duration-500">
-                  <div className="absolute inset-0 bg-neutral-900">
-                    <div className="absolute top-0 right-0 p-8 opacity-10">
-                      <CreditCard size={120} />
-                    </div>
-                    {/* Glowing effect */}
-                    <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-blue-600/20 blur-[100px]"></div>
-                  </div>
+                <div className="relative h-48 rounded-3xl overflow-hidden shadow-2xl transition-transform group-hover:scale-[1.02] duration-500 bg-neutral-900">
+                  {order.cardDetails?.image ? (
+                    <img src={order.cardDetails.image} alt="" className="absolute inset-0 w-full h-full object-contain" />
+                  ) : (
+                    <>
+                      <div className="absolute top-0 right-0 p-8 opacity-10">
+                        <CreditCard size={120} />
+                      </div>
+                      <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-blue-600/20 blur-[100px]"></div>
+                    </>
+                  )}
                   
-                  <div className="relative z-10 p-8 h-full flex flex-col justify-between text-white">
+                  {/* Overlay for readability */}
+                  <div className={`relative z-10 p-8 h-full flex flex-col justify-between text-white ${order.cardDetails?.image ? 'bg-black/40 backdrop-blur-[2px]' : ''}`}>
                     <div className="flex justify-between items-start">
                       <Sparkles className="text-blue-400" size={24} />
-                      <span className="text-lg font-black tracking-widest italic opacity-80">NEOCARD</span>
+                      <span className="text-lg font-black tracking-widest italic opacity-80">
+                        {order.cardDetails?.name || 'NEOCARD'}
+                      </span>
                     </div>
                     
                     <div className="space-y-4">

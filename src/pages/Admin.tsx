@@ -21,6 +21,7 @@ export default function Admin() {
     price: 35,
     limit: 1000,
     expiration: "12/26",
+    image: "",
     features: ["Instant Delivery", "Secure Funds"],
     rating: 4.8,
     reviews: 0
@@ -198,6 +199,42 @@ export default function Admin() {
                   />
                 </div>
 
+                <div className="col-span-2 space-y-2">
+                  <label className="text-xs font-bold text-neutral-500 uppercase">Card Image URL</label>
+                  <div className="grid grid-cols-4 md:grid-cols-8 gap-2 mb-4">
+                    {[
+                      "https://neobyteback.com/wp-content/uploads/2025/10/37f7590a-1d4f-4cab-b12d-7affe95f9c4c-300x188.png",
+                      "https://neobyteback.com/wp-content/uploads/2025/10/White-Pastel-Bank-Credit-Debit-Atm-Card-Poster-Made-with-PosterMyWall-e1760630010828-300x187.png",
+                      "https://neobyteback.com/wp-content/uploads/2025/12/TRGJHKNM-300x190.avif",
+                      "https://neobyteback.com/wp-content/uploads/2025/10/American-ex-1-300x190.avif",
+                      "https://neobyteback.com/wp-content/uploads/2025/12/usaa-secured-classic-visa-card-flat-new-look-v1-e1772553991304-300x195.png",
+                      "https://neobyteback.com/wp-content/uploads/2025/10/Untitled-design-2-300x190.png"
+                    ].map((url, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => setFormData({ ...formData, image: url })}
+                        className="h-12 bg-neutral-100 rounded-lg overflow-hidden border-2 border-transparent hover:border-blue-500 transition"
+                      >
+                        <img src={url} alt="" className="w-full h-full object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    type="url"
+                    required
+                    placeholder="https://example.com/card.png"
+                    className="w-full px-4 py-3 bg-neutral-50 border border-neutral-100 rounded-xl focus:border-blue-600 outline-none"
+                    value={formData.image}
+                    onChange={e => setFormData({...formData, image: e.target.value})}
+                  />
+                  {formData.image && (
+                    <div className="mt-2 p-2 bg-neutral-50 rounded-xl border border-neutral-100 flex items-center justify-center">
+                      <img src={formData.image} alt="Preview" className="h-32 object-contain rounded-lg shadow-sm" />
+                    </div>
+                  )}
+                </div>
+
                 <div className="col-span-2 pt-4">
                   <button
                     type="submit"
@@ -246,15 +283,22 @@ export default function Admin() {
                 </td>
                 <td className="px-8 py-6 font-bold text-blue-600">${card.price}</td>
                 <td className="px-8 py-6 font-bold text-neutral-900">${card.limit.toLocaleString()}</td>
-                <td className="px-8 py-6">
-                  <div className="flex justify-end space-x-2">
-                    <button className="p-2 text-neutral-400 hover:text-blue-600 transition"><Edit size={16} /></button>
-                    <button 
-                      onClick={() => handleDeleteCard(card.id)}
-                      className="p-2 text-neutral-400 hover:text-red-600 transition"
-                    >
-                      <Trash2 size={16} />
-                    </button>
+                <td className="px-8 py-6 text-right">
+                  <div className="flex justify-end items-center space-x-4">
+                    {card.image && (
+                      <div className="hidden md:block w-12 h-8 rounded bg-neutral-100 overflow-hidden border border-neutral-200">
+                        <img src={card.image} alt="" className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                    <div className="flex space-x-1">
+                      <button className="p-2 text-neutral-400 hover:text-blue-600 transition"><Edit size={16} /></button>
+                      <button 
+                        onClick={() => handleDeleteCard(card.id)}
+                        className="p-2 text-neutral-400 hover:text-red-600 transition"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </div>
                 </td>
               </tr>

@@ -130,31 +130,41 @@ export default function Cards() {
             >
               {/* Card visual representation */}
               <div
-                className={`h-52 p-8 flex flex-col justify-between text-white relative overflow-hidden ${
-                  card.type === "Visa"
-                    ? "bg-gradient-to-br from-blue-600 to-indigo-800"
-                    : card.type === "MasterCard"
-                    ? "bg-gradient-to-br from-neutral-800 to-neutral-950"
-                    : "bg-gradient-to-br from-emerald-600 to-teal-800"
+                className={`h-52 relative overflow-hidden flex items-center justify-center ${
+                  !card.image ? (
+                    card.type === "Visa"
+                      ? "bg-gradient-to-br from-blue-600 to-indigo-800"
+                      : card.type === "MasterCard"
+                      ? "bg-gradient-to-br from-neutral-800 to-neutral-950"
+                      : "bg-gradient-to-br from-emerald-600 to-teal-800"
+                  ) : "bg-neutral-100"
                 }`}
               >
-                <div className="absolute top-0 right-0 p-8 opacity-20">
-                  <CardIcon size={120} />
-                </div>
-                <div className="relative z-10 flex justify-between items-start">
-                  <span className="text-xl font-bold tracking-widest">{card.type}</span>
-                  <div className="flex flex-col items-end">
-                    <span className="text-xs uppercase opacity-70">Price</span>
-                    <span className="text-2xl font-bold">${card.price}</span>
+                {card.image ? (
+                  <img 
+                    src={card.image} 
+                    alt={card.name} 
+                    className="w-full h-full object-contain hover:scale-110 transition-transform duration-700" 
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div className="p-8 w-full h-full flex flex-col justify-between text-white">
+                    <div className="absolute top-0 right-0 p-8 opacity-20">
+                      <CardIcon size={120} />
+                    </div>
+                    <div className="relative z-10 flex justify-between items-start">
+                      <span className="text-xl font-bold tracking-widest">{card.type}</span>
+                    </div>
+                    <div className="relative z-10 space-y-1">
+                      <div className="text-sm opacity-80">Mock Card</div>
+                      <div className="text-lg font-semibold">{card.name}</div>
+                    </div>
                   </div>
-                </div>
-                <div className="relative z-10 space-y-1">
-                  <div className="text-sm opacity-80">Card Name</div>
-                  <div className="text-lg font-semibold">{card.name}</div>
-                  <div className="flex justify-between items-end pt-2">
-                    <div className="text-xs opacity-60">Expires: {card.expiration}</div>
-                    <div className="text-xs font-mono opacity-80">**** **** **** 4012</div>
-                  </div>
+                )}
+                
+                {/* Price tag overlay */}
+                <div className="absolute top-4 right-4 z-20 bg-white/90 backdrop-blur-sm text-neutral-900 px-3 py-1.5 rounded-xl font-black text-sm shadow-lg">
+                  ${card.price}
                 </div>
               </div>
 
