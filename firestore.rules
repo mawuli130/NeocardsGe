@@ -1,0 +1,60 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    match /test/connection {
+      allow read: if true;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.email == "medekukumawuli3@gmail.com";
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Order validation
+    function isValidOrder(data) {
+      return data.keys().hasAll(['userId', 'cardId', 'amount', 'status', 'createdAt']) && 
+             data.keys().size() >= 5 &&
+             data.userId == request.auth.uid &&
+             data.amount is number &&
+             data.status in ['pending', 'completed', 'failed'] &&
+             data.createdAt is number;
+    }
+
+    // Cards Collection (Products)
+    match /cards/{cardId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Orders Collection
+    match /orders/{orderId} {
+      allow get: if isOwner(resource.data.userId) || isAdmin();
+      allow list: if (isSignedIn() && resource.data.userId == request.auth.uid) || isAdmin();
+      
+      allow create: if isSignedIn() && 
+                      isValidId(orderId) &&
+                      isValidOrder(request.resource.data) &&
+                      request.resource.data.createdAt == request.time.toMillis();
+      
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+  }
+}

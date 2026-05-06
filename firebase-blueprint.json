@@ -1,0 +1,52 @@
+{
+  "entities": {
+    "Order": {
+      "title": "Order",
+      "description": "Represents a card purchase order.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "UID of the user who made the purchase" },
+        "cardId": { "type": "string", "description": "ID of the card purchased" },
+        "amount": { "type": "number", "description": "Amount paid in USD" },
+        "status": { "type": "string", "enum": ["pending", "completed", "failed"] },
+        "paymentMethod": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "cardDetails": {
+          "type": "object",
+          "properties": {
+            "number": { "type": "string" },
+            "cvv": { "type": "string" },
+            "expiry": { "type": "string" },
+            "pin": { "type": "string" }
+          }
+        }
+      },
+      "required": ["userId", "cardId", "amount", "status", "createdAt"]
+    },
+    "Card": {
+      "title": "Card",
+      "description": "Represents a card template for sale",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "price": { "type": "number" },
+        "limit": { "type": "number" },
+        "expiration": { "type": "string" },
+        "rating": { "type": "number" },
+        "reviews": { "type": "number" },
+        "features": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  },
+  "firestore": {
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "User purchases"
+    },
+    "/cards/{cardId}": {
+      "schema": "Card",
+      "description": "Products for sale"
+    }
+  }
+}
