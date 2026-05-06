@@ -11,14 +11,17 @@ import { ADMIN_EMAIL } from "../constants";
 export default function Admin() {
   const navigate = useNavigate();
   const [cards, setCards] = useState<Card[]>([]);
+  const [assets, setAssets] = useState<{id: string, url: string}[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdding, setIsAdding] = useState(false);
+  const [isManagingAssets, setIsManagingAssets] = useState(false);
+  const [newAssetUrl, setNewAssetUrl] = useState("");
   
   // Form State
   const [formData, setFormData] = useState<Partial<Card>>({
     name: "",
     type: "Visa",
-    price: 35,
+    price: 90,
     limit: 1000,
     expiration: "12/26",
     image: "",
@@ -33,7 +36,7 @@ export default function Admin() {
       navigate("/");
       return;
     }
-    fetchCards();
+    Promise.all([fetchCards(), fetchAssets()]);
   }, [navigate]);
 
   async function fetchCards() {
@@ -45,10 +48,44 @@ export default function Admin() {
     } catch (error) {
       console.error("Error fetching cards:", error);
       handleFirestoreError(error, OperationType.LIST, path);
+    }
+  }
+
+  async function fetchAssets() {
+    const path = "assets";
+    try {
+      const snapshot = await getDocs(collection(db, path));
+      const fetchedAssets = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+      setAssets(fetchedAssets);
+    } catch (error) {
+      console.error("Error fetching assets:", error);
     } finally {
       setLoading(false);
     }
   }
+
+  const handleAddAsset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newAssetUrl) return;
+    try {
+      await addDoc(collection(db, "assets"), { url: newAssetUrl, type: "card_image" });
+      toast.success("Image added to library");
+      setNewAssetUrl("");
+      fetchAssets();
+    } catch (error) {
+      toast.error("Failed to add image");
+    }
+  };
+
+  const handleDeleteAsset = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, "assets", id));
+      toast.success("Image removed from library");
+      fetchAssets();
+    } catch (error) {
+      toast.error("Failed to delete image");
+    }
+  };
 
   const handleAddCard = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -95,13 +132,22 @@ export default function Admin() {
           <h1 className="text-4xl font-bold text-neutral-900 tracking-tight">Admin Dashboard</h1>
           <p className="text-neutral-500">Manage your digital card marketplace inventory.</p>
         </div>
-        <button
-          onClick={() => setIsAdding(true)}
-          className="bg-neutral-900 text-white px-8 py-4 rounded-2xl font-bold flex items-center space-x-2 hover:bg-blue-600 transition shadow-xl"
-        >
-          <Plus size={20} />
-          <span>Add New Card</span>
-        </button>
+        <div className="flex gap-4">
+          <button
+            onClick={() => setIsManagingAssets(true)}
+            className="bg-white text-neutral-900 border-2 border-neutral-100 px-8 py-4 rounded-2xl font-bold flex items-center space-x-2 hover:bg-neutral-50 transition shadow-sm"
+          >
+            <ShoppingBag size={20} />
+            <span>Image Library ({assets.length})</span>
+          </button>
+          <button
+            onClick={() => setIsAdding(true)}
+            className="bg-neutral-900 text-white px-8 py-4 rounded-2xl font-bold flex items-center space-x-2 hover:bg-blue-600 transition shadow-xl"
+          >
+            <Plus size={20} />
+            <span>Add New Card</span>
+          </button>
+        </div>
       </header>
 
       {/* Stats */}
@@ -121,6 +167,55 @@ export default function Admin() {
           </div>
         </div>
       </div>
+
+      {/* Asset Manager Modal */}
+      <AnimatePresence>
+        {isManagingAssets && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white w-full max-w-3xl rounded-[2.5rem] shadow-2xl p-8 md:p-10 relative overflow-hidden"
+            >
+              <button 
+                onClick={() => setIsManagingAssets(false)}
+                className="absolute top-6 right-6 text-neutral-400 hover:text-neutral-900 transition"
+              >
+                <X size={24} />
+              </button>
+              <h2 className="text-2xl font-bold mb-8">Image Library (Plenty of PNGs)</h2>
+              
+              <form onSubmit={handleAddAsset} className="mb-8 flex gap-2">
+                <input
+                  type="url"
+                  placeholder="Paste PNG Link here..."
+                  className="flex-grow px-4 py-3 bg-neutral-50 border border-neutral-100 rounded-xl focus:border-blue-600 outline-none"
+                  value={newAssetUrl}
+                  onChange={e => setNewAssetUrl(e.target.value)}
+                  required
+                />
+                <button type="submit" className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-blue-700 transition flex items-center gap-2">
+                  <Plus size={20} />
+                  <span>Add URL</span>
+                </button>
+              </form>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-h-[400px] overflow-y-auto p-2 scrollbar-hide">
+                {assets.map(asset => (
+                  <div key={asset.id} className="relative group rounded-xl overflow-hidden border border-neutral-100 aspect-[3/2] bg-neutral-50">
+                    <img src={asset.url} className="w-full h-full object-contain" alt="" />
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                      <button onClick={() => handleDeleteAsset(asset.id)} className="text-white hover:text-red-400 transition"><Trash2 size={24} /></button>
+                    </div>
+                  </div>
+                ))}
+                {assets.length === 0 && <p className="col-span-full py-8 text-center text-neutral-400 italic">No images in library yet.</p>}
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Add Form Modal */}
       <AnimatePresence>
@@ -163,11 +258,12 @@ export default function Admin() {
                     <option>Visa</option>
                     <option>MasterCard</option>
                     <option>American Express</option>
+                    <option>Discover</option>
                   </select>
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-neutral-500 uppercase">Price (USD)</label>
+                  <label className="text-xs font-bold text-neutral-500 uppercase">Sale Price (USD)</label>
                   <input
                     type="number"
                     required
@@ -175,6 +271,7 @@ export default function Admin() {
                     value={formData.price}
                     onChange={e => setFormData({...formData, price: Number(e.target.value)})}
                   />
+                  <p className="text-[10px] text-neutral-400 font-bold italic">Initial price shown to users will be ${Number(formData.price || 0) + 20}</p>
                 </div>
 
                 <div className="space-y-2">
@@ -200,39 +297,32 @@ export default function Admin() {
                 </div>
 
                 <div className="col-span-2 space-y-2">
-                  <label className="text-xs font-bold text-neutral-500 uppercase">Card Image URL</label>
-                  <div className="grid grid-cols-4 md:grid-cols-8 gap-2 mb-4">
-                    {[
-                      "https://neobyteback.com/wp-content/uploads/2025/10/37f7590a-1d4f-4cab-b12d-7affe95f9c4c-300x188.png",
-                      "https://neobyteback.com/wp-content/uploads/2025/10/White-Pastel-Bank-Credit-Debit-Atm-Card-Poster-Made-with-PosterMyWall-e1760630010828-300x187.png",
-                      "https://neobyteback.com/wp-content/uploads/2025/12/TRGJHKNM-300x190.avif",
-                      "https://neobyteback.com/wp-content/uploads/2025/10/American-ex-1-300x190.avif",
-                      "https://neobyteback.com/wp-content/uploads/2025/12/usaa-secured-classic-visa-card-flat-new-look-v1-e1772553991304-300x195.png",
-                      "https://neobyteback.com/wp-content/uploads/2025/10/Untitled-design-2-300x190.png"
-                    ].map((url, i) => (
+                  <label className="text-xs font-bold text-neutral-500 uppercase">Select Image from Library</label>
+                  <div className="grid grid-cols-4 md:grid-cols-6 gap-2 max-h-40 overflow-y-auto p-1 border rounded-xl bg-neutral-50">
+                    {assets.map((asset) => (
                       <button
-                        key={i}
+                        key={asset.id}
                         type="button"
-                        onClick={() => setFormData({ ...formData, image: url })}
-                        className="h-12 bg-neutral-100 rounded-lg overflow-hidden border-2 border-transparent hover:border-blue-500 transition"
+                        onClick={() => setFormData({ ...formData, image: asset.url })}
+                        className={`aspect-square rounded-lg overflow-hidden border-2 transition ${
+                          formData.image === asset.url ? "border-blue-600 ring-2 ring-blue-600/20" : "border-transparent hover:border-blue-300"
+                        }`}
                       >
-                        <img src={url} alt="" className="w-full h-full object-cover" />
+                        <img src={asset.url} alt="" className="w-full h-full object-contain bg-white" />
                       </button>
                     ))}
+                    {assets.length === 0 && <p className="col-span-full py-4 text-center text-xs text-neutral-400 italic">Library is empty. Add links first.</p>}
                   </div>
-                  <input
-                    type="url"
-                    required
-                    placeholder="https://example.com/card.png"
-                    className="w-full px-4 py-3 bg-neutral-50 border border-neutral-100 rounded-xl focus:border-blue-600 outline-none"
-                    value={formData.image}
-                    onChange={e => setFormData({...formData, image: e.target.value})}
-                  />
-                  {formData.image && (
-                    <div className="mt-2 p-2 bg-neutral-50 rounded-xl border border-neutral-100 flex items-center justify-center">
-                      <img src={formData.image} alt="Preview" className="h-32 object-contain rounded-lg shadow-sm" />
-                    </div>
-                  )}
+                  <div className="pt-2">
+                    <label className="text-[10px] font-bold text-neutral-400 uppercase">Or Custom Link</label>
+                    <input
+                      type="url"
+                      placeholder="https://..."
+                      className="w-full px-4 py-2 mt-1 bg-neutral-50 border border-neutral-100 rounded-lg text-sm"
+                      value={formData.image}
+                      onChange={e => setFormData({...formData, image: e.target.value})}
+                    />
+                  </div>
                 </div>
 
                 <div className="col-span-2 pt-4">

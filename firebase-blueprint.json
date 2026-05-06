@@ -48,6 +48,16 @@
     "/cards/{cardId}": {
       "schema": "Card",
       "description": "Products for sale"
+    },
+    "/assets/{assetId}": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string" },
+          "type": { "type": "string", "enum": ["card_image"] }
+        }
+      },
+      "description": "Library of images for reuse"
     }
   }
 }
